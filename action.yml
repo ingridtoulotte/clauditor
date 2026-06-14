@@ -1,0 +1,30 @@
+name: "clauditor"
+description: "Audit your Claude Code instruction stack and fail CI on contradictions and dead rules."
+branding:
+  icon: "check-circle"
+  color: "purple"
+inputs:
+  path:
+    description: "Project dir or CLAUDE.md file to audit."
+    required: false
+    default: "."
+  args:
+    description: "Extra clauditor flags (e.g. --strict, --min-severity warn)."
+    required: false
+    default: "--ci"
+  python-version:
+    description: "Python version to use."
+    required: false
+    default: "3.12"
+runs:
+  using: "composite"
+  steps:
+    - uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+    - name: Install clauditor
+      shell: bash
+      run: pip install "${{ github.action_path }}"
+    - name: Run clauditor
+      shell: bash
+      run: clauditor ${{ inputs.path }} ${{ inputs.args }}
