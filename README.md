@@ -2,7 +2,7 @@
 
 # clauditor
 
-### Find the rules Claude silently ignores in your `CLAUDE.md`.
+### The linter for your `CLAUDE.md`.
 
 **clauditor audits your whole Claude Code instruction stack and shows you which rules are dead, contradictory, vague, duplicated, or just burning tokens — in one command, fully local.**
 
@@ -10,43 +10,17 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 ![Python](https://img.shields.io/badge/python-3.8%2B-blue)
 ![Dependencies](https://img.shields.io/badge/dependencies-0-success)
+![Local only](https://img.shields.io/badge/network_calls-0-success)
 [![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
 [![Stars](https://img.shields.io/github/stars/ingridtoulotte/clauditor?style=social)](https://github.com/ingridtoulotte/clauditor/stargazers)
 
+<br/>
+
+<img src="assets/clauditor-demo.svg" alt="clauditor terminal output: a precedence map of every CLAUDE.md in the stack, findings for contradictions, dead rules and filler, and a 72/100 health score" width="820">
+
+<sub><i>One command. Your entire instruction stack — every <code>CLAUDE.md</code>, <code>.claude/rules</code>, and <code>@import</code> — audited and scored.</i></sub>
+
 </div>
-
----
-
-```
-  clauditor  ·  Claude config audit
-
-  PRECEDENCE  (top = wins conflicts)
-    project-local  examples/messy/CLAUDE.local.md  ~35t
-    project        examples/messy/CLAUDE.md  ~136t
-    import         examples/messy/extra-rules.md  ~15t
-    import(broken) examples/messy/missing-standards.md  MISSING
-
-  FINDINGS  9 total
-
-  🔴 ERROR contradiction  examples/messy/CLAUDE.md:5
-      Contradiction (conflicting choice: tabs vs spaces) at equal precedence — Claude picks one arbitrarily.
-      A: Use tabs for indentation.
-      B: Use spaces for indentation.
-      → Delete or reconcile one of the two rules so only one survives.
-
-  🟡 WARN override  examples/messy/CLAUDE.md:7
-      Dead rule: 'Always run tests before committing.' is silently overridden by a higher-precedence rule.
-      winner: Never run tests before committing; they are too slow. [examples/messy/CLAUDE.local.md:3]
-      → Remove the dead rule, or move it to the higher-precedence layer if you actually want it to win.
-
-  🔴 ERROR imports  examples/messy/missing-standards.md:0
-      Broken @import: '…/missing-standards.md' does not exist — its rules never load.
-
-  HEALTH  [█████████████████░░░░░░░] 72/100
-    3 error 4 warn 3 info · 16 rules · 3 files
-```
-
-*(real output of `clauditor examples/messy` — trimmed)*
 
 ---
 
@@ -57,7 +31,7 @@ pipx install git+https://github.com/ingridtoulotte/clauditor
 clauditor                 # audits the current project + your ~/.claude
 ```
 
-No pipx? Either of these works just as well:
+No pipx? Either works just as well:
 
 ```bash
 pip install git+https://github.com/ingridtoulotte/clauditor && clauditor
@@ -92,6 +66,27 @@ and copies of the same rule three times — all loaded into context on *every si
 
 ---
 
+## See it on a real mess
+
+Point clauditor at a folder. It reconstructs the precedence order Claude actually
+uses, then flags every rule that won't survive contact with it:
+
+```diff
+  examples/messy/CLAUDE.md
+- - Use tabs for indentation.
+- - Use spaces for indentation.          🔴 contradiction — same tier, Claude coin-flips
+- - Always run tests before committing.   🟡 dead — your CLAUDE.local.md says "never"
+- - Try to keep functions small...        🟡 vague — Claude can't verify it complied
+- - ...commit messages. (line 8)
+- - ...commit messages. (line 9)          🔵 duplicate — billed twice, every turn
+- - Please run the linter, thank you!     🔵 filler — costs tokens, says nothing
+- - @./missing-standards.md               🔴 broken import — a whole file never loads
+```
+
+Six of those eight lines were doing nothing — or worse. **You can't fix what you can't see.**
+
+---
+
 ## What it checks
 
 | Check | | Catches |
@@ -104,27 +99,57 @@ and copies of the same rule three times — all loaded into context on *every si
 | **bloat** | 🟡 | Oversized global file / file / total budget, loaded every turn |
 | **filler** | 🔵 | Politeness and meta-narration ("please", "this file describes…") |
 
-Each finding comes with the exact `path:line` and a concrete fix. Full details and how
-the precedence weights are computed: **[docs/checks.md](docs/checks.md)**.
+Every finding comes with the exact `path:line` and a concrete fix. Full details and how
+precedence weights are computed: **[docs/checks.md](docs/checks.md)**.
 
 ---
 
-## Use it in CI
+## Five outputs, one engine
 
-Stop a bad rule from ever reaching `main`. The reusable Action installs and runs clauditor for you:
+```bash
+clauditor                            # colored terminal report (the screenshot above)
+clauditor --format json              # machine-readable, for scripts and dashboards
+clauditor --format md -o report.md   # drop a Markdown report into a PR
+clauditor --format sarif             # GitHub code-scanning annotations (see below)
+clauditor --format badge             # live "config health" badge for your README
+clauditor --min-severity warn        # hide the 🔵 info noise
+clauditor --no-user                  # audit only the project, skip ~/.claude
+clauditor --list-checks              # see every check
+```
+
+### 🛡️ Inline PR annotations (SARIF)
+
+clauditor speaks **SARIF 2.1.0**, so every dead or contradictory rule shows up as a
+review annotation right on the line in your PR's *Files changed* tab — same place you'd
+see an ESLint or CodeQL alert.
 
 ```yaml
 # .github/workflows/clauditor.yml
 name: clauditor
 on: [pull_request]
+permissions:
+  contents: read
+  security-events: write          # required to upload SARIF
 jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: ingridtoulotte/clauditor@v0.1.0
+      - uses: ingridtoulotte/clauditor@v0.2.0
         with:
-          args: --ci --strict   # fail on contradictions (and warnings, with --strict)
+          args: --sarif --ci -o clauditor.sarif   # annotate AND fail on 🔴
+      - uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: clauditor.sarif
+```
+
+Prefer a plain gate? The Action defaults to `--ci`:
+
+```yaml
+      - uses: ingridtoulotte/clauditor@v0.2.0
+        with:
+          args: --ci --strict   # exit 1 on contradictions (and warnings, with --strict)
 ```
 
 Or call the CLI directly anywhere:
@@ -134,27 +159,31 @@ clauditor --ci            # exit 1 if any 🔴 error exists
 clauditor --ci --strict   # exit 1 on 🟡 warnings too
 ```
 
-## Output formats
+### 🩺 A live config-health badge
+
+`--format badge` emits a [shields.io endpoint](https://shields.io/badges/endpoint-badge).
+Generate it in CI, commit the JSON, and put your config's health right in your README:
 
 ```bash
-clauditor                 # colored terminal report (default)
-clauditor --format json   # machine-readable, for scripts and dashboards
-clauditor --format md -o report.md   # drop a Markdown report into a PR
-clauditor --min-severity warn        # hide the 🔵 info noise
-clauditor --no-user                  # audit only the project, skip ~/.claude
-clauditor --list-checks              # see every check
+clauditor --format badge -o .clauditor-badge.json
 ```
+
+```md
+![Claude config](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/USER/REPO/main/.clauditor-badge.json)
+```
+
+→ ![example](https://img.shields.io/badge/claude%20config-72%2F100-yellow) &nbsp; (green ≥ 80, yellow ≥ 50, red below)
 
 ---
 
 ## How it compares
 
-| | what loaded | conflicts | dead/overridden rules | vague rules | whole stack | local-only | CI gate |
-|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
-| `/memory`, `/doctor` (built-in) | ✅ | ❌ | ❌ | ❌ | ⚠️ order only | ✅ | ❌ |
-| `claude-md-improver` (skill) | — | ⚠️ | ❌ | ✅ | ❌ misses `.claude/rules` | ✅ | ❌ |
-| token / context optimizers | — | ❌ | ❌ | ❌ | ⚠️ tokens only | ✅ | ❌ |
-| **clauditor** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| | what loaded | conflicts | dead/overridden rules | vague rules | whole stack | local-only | CI gate | PR annotations |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| `/memory`, `/doctor` (built-in) | ✅ | ❌ | ❌ | ❌ | ⚠️ order only | ✅ | ❌ | ❌ |
+| `claude-md-improver` (skill) | — | ⚠️ | ❌ | ✅ | ❌ misses `.claude/rules` | ✅ | ❌ | ❌ |
+| token / context optimizers | — | ❌ | ❌ | ❌ | ⚠️ tokens only | ✅ | ❌ | ❌ |
+| **clauditor** | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 clauditor isn't a token counter and it isn't a memory tool — it's the **linter** for the
 instructions you've already written. It pairs well with everything above.
@@ -163,8 +192,9 @@ instructions you've already written. It pairs well with everything above.
 
 ## Roadmap
 
+- [x] SARIF output for GitHub code-scanning annotations
+- [x] Live config-health badge endpoint
 - [ ] `--fix` mode that proposes concrete edits (remove dead rules, merge dupes)
-- [ ] SARIF output for GitHub code-scanning annotations
 - [ ] `--watch` mode that re-audits on save
 - [ ] Cross-tool support: `AGENTS.md`, Cursor `.mdc`, Copilot instructions
 - [ ] A `pre-commit` hook
@@ -176,12 +206,12 @@ Ideas and PRs very welcome — see below.
 
 A new check is **one file**. The whole contract is in
 [CONTRIBUTING.md](CONTRIBUTING.md), and [`good first issue`](https://github.com/ingridtoulotte/clauditor/labels/good%20first%20issue)
-issues are a great place to start (more antonym pairs, more weasel phrases, a SARIF reporter…).
+issues are a great place to start (more antonym pairs, more weasel phrases, a `--watch` mode…).
 
 ```bash
 git clone https://github.com/ingridtoulotte/clauditor && cd clauditor
 pip install -e .
-clauditor --selftest      # 34 assertions
+clauditor --selftest      # 42 assertions, hermetic, no network
 python -m unittest discover -s tests -v
 ```
 
@@ -190,11 +220,19 @@ python -m unittest discover -s tests -v
 **Does it send my config anywhere?** No. clauditor is pure stdlib and makes zero network
 calls. It only reads files you point it at.
 
+**Will it edit my files?** Not in v0.2. It only reports. (`--fix` is on the roadmap and
+will be opt-in.)
+
 **Are the token counts exact?** They're a stable proxy (~4 chars/token), good for comparing
 files and watching a budget — not for billing.
 
-**Will it edit my files?** Not in v1. It only reports. (`--fix` is on the roadmap and will
-be opt-in.)
+**Does the health score mean anything absolute?** It's a relative signal: 100 minus a
+penalty per finding (🔴 −6, 🟡 −2, 🔵 −0.5). Use it to trend your own config over time,
+not to compare against someone else's.
+
+**How does it know the precedence?** It mirrors Claude Code's documented hierarchy:
+enterprise → `CLAUDE.local.md` → project `CLAUDE.md` chain → `.claude/rules` → `~/.claude`.
+`@`-imports inherit their importer's weight. Details in [docs/checks.md](docs/checks.md).
 
 ---
 

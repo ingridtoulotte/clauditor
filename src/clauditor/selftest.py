@@ -15,7 +15,9 @@ from .loader import discover
 from .model import Rule, Source
 from .parser import parse_source
 from .registry import audit
-from .report import render_json, render_markdown, render_terminal
+from .report import (
+    render_badge, render_json, render_markdown, render_sarif, render_terminal,
+)
 from .textutil import estimate_tokens, polarity, tokenize
 
 
@@ -129,6 +131,24 @@ def run_selftest() -> int:
     t.ok("render-json", json.loads(render_json(rep))["health"] == rep.health)
     t.ok("render-md", "clauditor report" in render_markdown(rep))
     t.ok("render-term", "PRECEDENCE" in render_terminal(rep, color=False))
+
+    # --- sarif -------------------------------------------------------------
+    sarif = json.loads(render_sarif(rep))
+    t.ok("sarif-version", sarif["version"] == "2.1.0")
+    t.ok("sarif-results", len(sarif["runs"][0]["results"]) == len(rep.findings))
+    t.ok("sarif-level", all(r["level"] in ("error", "warning", "note")
+                            for r in sarif["runs"][0]["results"]))
+    t.ok("sarif-region", all(
+        loc["physicalLocation"]["region"]["startLine"] >= 1
+        for r in sarif["runs"][0]["results"] for loc in r["locations"]))
+    t.ok("sarif-rules", {r["id"] for r in sarif["runs"][0]["tool"]["driver"]["rules"]}
+         == {f.check for f in rep.findings})
+
+    # --- badge -------------------------------------------------------------
+    badge = json.loads(render_badge(rep))
+    t.ok("badge-schema", badge["schemaVersion"] == 1)
+    t.ok("badge-message", badge["message"] == f"{rep.health}/100")
+    t.ok("badge-color", badge["color"] in ("brightgreen", "yellow", "red"))
 
     # --- cli ---------------------------------------------------------------
     from .cli import main

@@ -1,10 +1,12 @@
-"""Render a Report as colored terminal output, JSON, or Markdown."""
+"""Render a Report as colored terminal output, JSON, Markdown, SARIF, or a
+shields.io badge endpoint."""
 from __future__ import annotations
 
 import json
 import os
 from typing import List
 
+from . import __version__
 from .model import SEVERITY_GLYPH, Report, Source
 from .textutil import estimate_tokens
 
@@ -111,6 +113,116 @@ def render_json(report: Report) -> str:
         ],
     }
     return json.dumps(data, indent=2, ensure_ascii=False)
+
+
+# --- SARIF (GitHub code-scanning) ------------------------------------------
+
+# One-line summary per check, surfaced as the rule description in GitHub's
+# code-scanning UI. Kept in sync with docs/checks.md.
+_CHECK_HELP = {
+    "contradiction": "Two rules clash at equal precedence; Claude resolves them non-deterministically.",
+    "override": "A rule is silently overridden by a higher-precedence rule, so it never takes effect.",
+    "vague": "Vague or unenforceable wording Claude cannot verify it followed.",
+    "duplicate": "Duplicate or near-duplicate rule that wastes context budget.",
+    "imports": "Broken, cyclic, or repeated @import that fails to load rules.",
+    "bloat": "Oversized instruction file or total budget, loaded on every turn.",
+    "filler": "Politeness or meta-narration that carries no instruction.",
+}
+
+# clauditor severity -> SARIF level.
+_SARIF_LEVEL = {"error": "error", "warn": "warning", "info": "note"}
+
+
+def _split_loc(loc: str):
+    """'path/to/file.md:12' -> ('path/to/file.md', 12). Drive-letter safe."""
+    path, _, line = loc.rpartition(":")
+    if not path:                       # no ':' at all
+        return loc, 1
+    try:
+        n = int(line)
+    except ValueError:
+        return loc, 1
+    return path, max(1, n)
+
+
+def _uri(path: str) -> str:
+    """Repo-relative, forward-slashed URI for SARIF artifact locations."""
+    try:
+        rel = os.path.relpath(path, os.getcwd())
+    except ValueError:                 # different drive on Windows
+        rel = path
+    return rel.replace("\\", "/")
+
+
+def render_sarif(report: Report) -> str:
+    """SARIF 2.1.0 — upload with github/codeql-action/upload-sarif to get
+    findings as inline annotations in the PR 'Files changed' tab."""
+    used = []
+    seen = set()
+    for f in report.findings:
+        if f.check not in seen:
+            seen.add(f.check)
+            used.append(f.check)
+
+    rules = [
+        {
+            "id": name,
+            "name": name,
+            "shortDescription": {"text": _CHECK_HELP.get(name, name)},
+            "helpUri": "https://github.com/ingridtoulotte/clauditor/blob/main/docs/checks.md",
+        }
+        for name in used
+    ]
+
+    results = []
+    for f in report.findings:
+        text = " ".join(f.message.split())
+        if f.fix:
+            text += f"  Fix: {f.fix}"
+        locations = []
+        for loc in f.locations:
+            path, line = _split_loc(loc)
+            locations.append({
+                "physicalLocation": {
+                    "artifactLocation": {"uri": _uri(path)},
+                    "region": {"startLine": line},
+                }
+            })
+        results.append({
+            "ruleId": f.check,
+            "level": _SARIF_LEVEL[f.severity],
+            "message": {"text": text},
+            "locations": locations,
+        })
+
+    doc = {
+        "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+        "version": "2.1.0",
+        "runs": [{
+            "tool": {"driver": {
+                "name": "clauditor",
+                "informationUri": "https://github.com/ingridtoulotte/clauditor",
+                "version": __version__,
+                "rules": rules,
+            }},
+            "results": results,
+        }],
+    }
+    return json.dumps(doc, indent=2, ensure_ascii=False)
+
+
+def render_badge(report: Report) -> str:
+    """shields.io endpoint JSON. Point a badge at a committed copy of this to
+    show live config health in any README:
+    https://img.shields.io/endpoint?url=<raw-url-to-this-file>"""
+    h = report.health
+    color = "brightgreen" if h >= 80 else "yellow" if h >= 50 else "red"
+    return json.dumps({
+        "schemaVersion": 1,
+        "label": "claude config",
+        "message": f"{h}/100",
+        "color": color,
+    }, ensure_ascii=False)
 
 
 def render_markdown(report: Report) -> str:

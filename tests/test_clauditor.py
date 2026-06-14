@@ -95,6 +95,26 @@ class TestEndToEnd(unittest.TestCase):
             rc = main([self.proj, "--no-user", "--home", self.tmp, "--ci"])
         self.assertEqual(rc, 1)
 
+    def test_cli_sarif(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            rc = main([self.proj, "--no-user", "--home", self.tmp, "--sarif"])
+        self.assertEqual(rc, 0)
+        doc = json.loads(buf.getvalue())
+        self.assertEqual(doc["version"], "2.1.0")
+        self.assertTrue(doc["runs"][0]["results"])
+        for res in doc["runs"][0]["results"]:
+            self.assertIn(res["level"], ("error", "warning", "note"))
+
+    def test_cli_badge(self):
+        buf = io.StringIO()
+        with redirect_stdout(buf):
+            rc = main([self.proj, "--no-user", "--home", self.tmp, "--format", "badge"])
+        self.assertEqual(rc, 0)
+        badge = json.loads(buf.getvalue())
+        self.assertEqual(badge["schemaVersion"], 1)
+        self.assertIn(badge["color"], ("brightgreen", "yellow", "red"))
+
 
 if __name__ == "__main__":
     unittest.main()

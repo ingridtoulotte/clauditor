@@ -30,3 +30,5 @@ jobs:
         run: |
           clauditor examples/clean --no-user --ci
           clauditor examples/messy --no-user --format md
+          clauditor examples/messy --no-user --format sarif | python -c "import json,sys; d=json.load(sys.stdin); assert d['version']=='2.1.0'; assert d['runs'][0]['results']"
+          clauditor examples/messy --no-user --format badge | python -c "import json,sys; assert json.load(sys.stdin)['schemaVersion']==1"

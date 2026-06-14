@@ -31,6 +31,24 @@ Higher weight wins a conflict. Weights mirror Claude Code's documented hierarchy
 > clauditor's token counts are a stable proxy (~4 chars/token), not Anthropic's
 > exact tokenizer. Use them to compare files and watch a budget, not for billing.
 
+## Output formats
+
+| `--format` | Use it for |
+|---|---|
+| `term` (default) | Reading the audit yourself in a terminal |
+| `json` | Scripts, dashboards, custom tooling |
+| `md` | Dropping a report into a PR description or wiki |
+| `sarif` | GitHub code-scanning — inline annotations on the offending line |
+| `badge` | A shields.io endpoint JSON for a live config-health badge |
+
+clauditor severity maps to SARIF level as follows:
+
+| clauditor | SARIF level | Shown in GitHub as |
+|---|---|---|
+| 🔴 error | `error` | red annotation |
+| 🟡 warn | `warning` | yellow annotation |
+| 🔵 info | `note` | neutral annotation |
+
 ## Tuning
 
 Drop a `.clauditor.toml` at the project root:

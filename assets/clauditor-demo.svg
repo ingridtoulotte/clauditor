@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="706" viewBox="0 0 900 706" font-family="ui-monospace, SFMono-Regular, 'JetBrains Mono', 'Fira Code', Menlo, Consolas, 'Liberation Mono', monospace" font-size="14">
+  <!-- window -->
+  <rect x="0.5" y="0.5" width="899" height="705" rx="10" fill="#0d1117" stroke="#30363d"/>
+  <path d="M0,46 V10 Q0,0 10,0 H890 Q900,0 900,10 V46 Z" fill="#161b22"/>
+  <line x1="0" y1="46" x2="900" y2="46" stroke="#30363d"/>
+  <circle cx="26" cy="23" r="6" fill="#ff5f56"/>
+  <circle cx="48" cy="23" r="6" fill="#ffbd2e"/>
+  <circle cx="70" cy="23" r="6" fill="#27c93f"/>
+  <text x="450" y="28" text-anchor="middle" fill="#8b949e" font-size="13">clauditor — Claude config audit</text>
+
+  <!-- body -->
+  <g xml:space="preserve">
+    <text x="24" y="84"><tspan fill="#39c5cf" font-weight="bold">  clauditor</tspan><tspan fill="#8b949e">  ·  Claude config audit</tspan></text>
+
+    <text x="24" y="126"><tspan fill="#f0f6fc" font-weight="bold">  PRECEDENCE  </tspan><tspan fill="#8b949e">(top = wins conflicts)</tspan></text>
+    <text x="24" y="147"><tspan fill="#8b949e">    project-local  </tspan><tspan fill="#c9d1d9">examples/messy/CLAUDE.local.md  </tspan><tspan fill="#8b949e">~35t</tspan></text>
+    <text x="24" y="168"><tspan fill="#8b949e">    project        </tspan><tspan fill="#c9d1d9">examples/messy/CLAUDE.md  </tspan><tspan fill="#8b949e">~136t</tspan></text>
+    <text x="24" y="189"><tspan fill="#8b949e">    import         </tspan><tspan fill="#c9d1d9">examples/messy/extra-rules.md  </tspan><tspan fill="#8b949e">~15t</tspan></text>
+    <text x="24" y="210"><tspan fill="#f85149">    import(broken) examples/messy/missing-standards.md  MISSING</tspan></text>
+
+    <text x="24" y="252"><tspan fill="#f0f6fc" font-weight="bold">  FINDINGS  </tspan><tspan fill="#8b949e">10 total</tspan></text>
+
+    <text x="24" y="294"><tspan fill="#f85149">  ● </tspan><tspan fill="#f85149" font-weight="bold">ERROR </tspan><tspan fill="#f0f6fc" font-weight="bold">contradiction  </tspan><tspan fill="#8b949e">examples/messy/CLAUDE.md:5</tspan></text>
+    <text x="24" y="315"><tspan fill="#c9d1d9">      Contradiction (tabs vs spaces) at equal precedence — Claude picks</tspan></text>
+    <text x="24" y="336"><tspan fill="#c9d1d9">      one arbitrarily.</tspan></text>
+    <text x="24" y="357"><tspan fill="#8b949e">      A: Use tabs for indentation.   B: Use spaces for indentation.</tspan></text>
+    <text x="24" y="378"><tspan fill="#8b949e">      → Delete or reconcile one of the two rules so only one survives.</tspan></text>
+
+    <text x="24" y="420"><tspan fill="#d29922">  ● </tspan><tspan fill="#d29922" font-weight="bold">WARN  </tspan><tspan fill="#f0f6fc" font-weight="bold">override  </tspan><tspan fill="#8b949e">examples/messy/CLAUDE.md:7</tspan></text>
+    <text x="24" y="441"><tspan fill="#c9d1d9">      Dead rule: 'Always run tests before committing.' is silently</tspan></text>
+    <text x="24" y="462"><tspan fill="#c9d1d9">      overridden by a higher-precedence rule.</tspan></text>
+    <text x="24" y="483"><tspan fill="#8b949e">      winner: Never run tests…  [CLAUDE.local.md:3]</tspan></text>
+
+    <text x="24" y="525"><tspan fill="#58a6ff">  ● </tspan><tspan fill="#58a6ff" font-weight="bold">INFO  </tspan><tspan fill="#f0f6fc" font-weight="bold">filler  </tspan><tspan fill="#8b949e">examples/messy/CLAUDE.md:14</tspan></text>
+    <text x="24" y="546"><tspan fill="#c9d1d9">      Politeness filler — no instruction, pure token cost.</tspan></text>
+    <text x="24" y="567"><tspan fill="#8b949e">      Please always run the linter before pushing, thank you!</tspan></text>
+
+    <text x="24" y="609"><tspan fill="#6e7681">      … + 7 more findings  (vague, duplicate, broken import …)</tspan></text>
+  </g>
+
+  <!-- health bar -->
+  <text x="24" y="657" font-weight="bold" fill="#f0f6fc" xml:space="preserve">  HEALTH</text>
+  <rect x="116" y="646" width="260" height="13" rx="6.5" fill="#30363d"/>
+  <rect x="116" y="646" width="187" height="13" rx="6.5" fill="#d29922"/>
+  <text x="388" y="657" fill="#d29922" font-weight="bold">72/100</text>
+
+  <text x="24" y="684" xml:space="preserve"><tspan fill="#f85149">    3 error  </tspan><tspan fill="#d29922">4 warn  </tspan><tspan fill="#58a6ff">3 info  </tspan><tspan fill="#8b949e">· 16 rules · 3 files</tspan></text>
+</svg>

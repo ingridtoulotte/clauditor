@@ -11,7 +11,9 @@ from .config import load_context
 from .loader import discover
 from .model import SEVERITY_RANK, Report
 from .registry import CHECK_MODULES, audit
-from .report import render_json, render_markdown, render_terminal
+from .report import (
+    render_badge, render_json, render_markdown, render_sarif, render_terminal,
+)
 
 
 def _build_parser() -> argparse.ArgumentParser:
@@ -27,9 +29,10 @@ def _build_parser() -> argparse.ArgumentParser:
     p.add_argument("--home", metavar="DIR", help="override home dir (for testing)")
     p.add_argument("--enterprise", metavar="FILE",
                    help="path to an enterprise managed CLAUDE policy file")
-    p.add_argument("--format", choices=["term", "json", "md"], default="term",
-                   help="output format (default: term)")
+    p.add_argument("--format", choices=["term", "json", "md", "sarif", "badge"],
+                   default="term", help="output format (default: term)")
     p.add_argument("--json", action="store_true", help="shortcut for --format json")
+    p.add_argument("--sarif", action="store_true", help="shortcut for --format sarif")
     p.add_argument("--output", "-o", metavar="FILE", help="write report to FILE")
     p.add_argument("--min-severity", choices=["error", "warn", "info"],
                    default="info", help="hide findings below this severity")
@@ -80,9 +83,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     report = audit(sources, ctx)
     report = _filter(report, args.min_severity)
 
-    fmt = "json" if args.json else args.format
+    fmt = "json" if args.json else "sarif" if args.sarif else args.format
     if fmt == "json":
         text = render_json(report)
+    elif fmt == "sarif":
+        text = render_sarif(report)
+    elif fmt == "badge":
+        text = render_badge(report)
     elif fmt == "md":
         text = render_markdown(report)
     else:
