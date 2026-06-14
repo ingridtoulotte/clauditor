@@ -134,7 +134,7 @@ jobs:
   audit:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: ingridtoulotte/clauditor@v0.2.0
         with:
           args: --sarif --ci -o clauditor.sarif   # annotate AND fail on 🔴
